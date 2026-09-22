@@ -1,0 +1,3 @@
+# Keep Spark APIs consistent with the assignment notebook and local Spark runtime.
+pyspark>=3.5,<4.0
+pytest>=8.0,<9.0
