@@ -1,0 +1,10 @@
+source_field,target_field,spark_type,cleaning_rule,invalid_value_policy
+Arrest,arrest,boolean,"Trim, lowercase, and cast",Retain null for transparent downstream filtering
+Community Area,community_area,integer,Cast to integer,Retain and flag values outside 1-77
+Date,incident_timestamp,timestamp,Parse supported timestamp formats,Reject unparseable values
+District,district,integer,Cast to integer,Retain and flag values outside 1-31
+Domestic,domestic,boolean,"Trim, lowercase, and cast",Retain null for transparent downstream filtering
+ID,crime_id,long,Cast to long,Reject null or non-positive values
+Latitude,latitude,double,Cast to double,Retain and flag values outside Chicago bounds
+Longitude,longitude,double,Cast to double,Retain and flag values outside Chicago bounds
+Primary Type,primary_type,string,Trim text,Retain null for non-modelling analysis

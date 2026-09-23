@@ -1,0 +1,3 @@
+cluster,incident_count,centroid_latitude,centroid_longitude,average_hour,district_count,spatial_dispersion,activity_concentration_index,is_high_activity_zone,crosses_district_boundaries
+0,3568524,41.76720823758651,-87.62868104658627,13.201009156726982,22,0.06380376407363875,55929678.3161791,False,True
+1,4129174,41.907128297863565,-87.7083773756687,13.110531065050782,22,0.06982894177583657,59132701.92831204,True,True

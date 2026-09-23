@@ -1,0 +1,7 @@
+weather_condition,day_count,average_daily_crime_count,median_daily_crime_count
+no event,746,1049.2882037533511,1055
+other event,119,1052.7394957983192,1055
+other precipitation,112,1073.5625,1052
+rain,374,1028.6363636363637,1019
+snow,278,915.0215827338129,908
+thunderstorm,198,1067.3636363636363,1067
