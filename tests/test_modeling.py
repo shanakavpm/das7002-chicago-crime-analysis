@@ -3,7 +3,16 @@
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import functions as F
 
-from chicago_crime.modeling import add_class_weights, create_roc_curve, create_threshold_metrics
+from pyspark.ml.classification import GBTClassifier, LogisticRegression
+from pyspark.ml.feature import OneHotEncoder
+
+from chicago_crime.modeling import (
+    add_class_weights,
+    create_gradient_boosted_tree_pipeline,
+    create_logistic_regression_pipeline,
+    create_roc_curve,
+    create_threshold_metrics,
+)
 
 
 def test_roc_curve_contains_endpoints_and_ranked_predictions(spark):
@@ -53,3 +62,14 @@ def test_threshold_metrics_show_precision_recall_tradeoff(spark):
 
     assert rows[0.2].recall == 1.0
     assert rows[0.8].precision == 1.0
+
+
+def test_comparison_pipelines_use_expected_estimators_and_encoding(spark):
+    logistic_stages = create_logistic_regression_pipeline().getStages()
+    gbt_stages = create_gradient_boosted_tree_pipeline().getStages()
+
+    assert any(isinstance(stage, OneHotEncoder) for stage in logistic_stages)
+    assert isinstance(logistic_stages[-1], LogisticRegression)
+    assert logistic_stages[-1].getWeightCol() == "class_weight"
+    assert isinstance(gbt_stages[-1], GBTClassifier)
+    assert gbt_stages[-1].getWeightCol() == "class_weight"

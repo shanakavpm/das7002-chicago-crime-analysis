@@ -13,6 +13,7 @@ CLUSTER_FEATURES = ("latitude", "longitude", "hour")
 CLUSTER_TRAINING_FRACTION = 0.002
 CLUSTER_TRAINING_PARTITIONS = 8
 MINIMUM_SAMPLE_RECORDS = 100
+CLUSTER_SEEDS = (42, 123, 2026)
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,7 @@ class ClusteringResult:
 
     best_k: int
     scores: DataFrame
+    stability_scores: DataFrame
     clustered_records: DataFrame
     cluster_summary: DataFrame
     district_alignment: DataFrame
@@ -38,8 +40,11 @@ def prepare_clustering_input(crime_frame: DataFrame) -> DataFrame:
 def fit_spatial_temporal_clusters(
     crime_frame: DataFrame,
     candidates: range = range(2, 7),
+    seeds: tuple[int, ...] = CLUSTER_SEEDS,
 ) -> ClusteringResult:
-    """Choose K on a seeded sample, then profile all valid crime records with the chosen model."""
+    """Choose K from repeated seeded fits, then profile all valid crime records."""
+    if not seeds:
+        raise ValueError("Clustering requires at least one random seed.")
     input_frame = prepare_clustering_input(crime_frame)
     sampled_input = (
         input_frame.sample(
@@ -82,57 +87,53 @@ def fit_spatial_temporal_clusters(
         distanceMeasure="squaredEuclidean",
     )
     score_rows = []
-    best_model = None
-    best_k = None
-    best_score = float("-inf")
     for k in valid_candidates:
-        model = KMeans(
-            k=k,
-            seed=42,
-            featuresCol="features",
-            predictionCol="cluster",
-        ).fit(training_features)
-        training_predictions = model.transform(training_features).cache()
-        score = evaluator.evaluate(training_predictions)
-        cluster_sizes = [
-            row.incident_count
-            for row in training_predictions.groupBy("cluster")
-            .agg(F.count("*").alias("incident_count"))
-            .collect()
-        ]
-        district_counts = training_predictions.filter(F.col("district").isNotNull()).groupBy(
-            "cluster", "district"
-        ).count()
-        dominant_district_share = (
-            district_counts.withColumn(
-                "district_share",
-                F.col("count") / F.sum("count").over(Window.partitionBy("cluster")),
+        for seed in seeds:
+            model = KMeans(
+                k=k,
+                seed=seed,
+                featuresCol="features",
+                predictionCol="cluster",
+            ).fit(training_features)
+            training_predictions = model.transform(training_features).cache()
+            score = evaluator.evaluate(training_predictions)
+            cluster_sizes = [
+                row.incident_count
+                for row in training_predictions.groupBy("cluster")
+                .agg(F.count("*").alias("incident_count"))
+                .collect()
+            ]
+            district_counts = training_predictions.filter(F.col("district").isNotNull()).groupBy(
+                "cluster", "district"
+            ).count()
+            dominant_district_share = (
+                district_counts.withColumn(
+                    "district_share",
+                    F.col("count") / F.sum("count").over(Window.partitionBy("cluster")),
+                )
+                .groupBy("cluster")
+                .agg(F.max("district_share").alias("dominant_district_share"))
+                .agg(F.avg("dominant_district_share").alias("average_dominant_district_share"))
+                .first()
+                .average_dominant_district_share
             )
-            .groupBy("cluster")
-            .agg(F.max("district_share").alias("dominant_district_share"))
-            .agg(F.avg("dominant_district_share").alias("average_dominant_district_share"))
-            .first()
-            .average_dominant_district_share
-        )
-        score_rows.append(
-            (
-                k,
-                score,
-                float(model.summary.trainingCost),
-                min(cluster_sizes),
-                max(cluster_sizes),
-                float(dominant_district_share),
+            score_rows.append(
+                (
+                    seed,
+                    k,
+                    score,
+                    float(model.summary.trainingCost),
+                    min(cluster_sizes),
+                    max(cluster_sizes),
+                    float(dominant_district_share or 0.0),
+                )
             )
-        )
-        training_predictions.unpersist()
-        if score > best_score:
-            best_k = k
-            best_model = model
-            best_score = score
+            training_predictions.unpersist()
 
-    scores = crime_frame.sparkSession.createDataFrame(
+    stability_scores = crime_frame.sparkSession.createDataFrame(
         score_rows,
         [
+            "seed",
             "k",
             "silhouette_score",
             "training_cost",
@@ -140,9 +141,30 @@ def fit_spatial_temporal_clusters(
             "maximum_cluster_size",
             "average_dominant_district_share",
         ],
-    ).orderBy("k")
-    if best_model is None or best_k is None:
-        raise RuntimeError("No K-Means candidate model was selected.")
+    ).orderBy("k", "seed")
+    scores = (
+        stability_scores.groupBy("k")
+        .agg(
+            F.avg("silhouette_score").alias("silhouette_score"),
+            F.stddev_samp("silhouette_score").alias("silhouette_stddev"),
+            F.avg("training_cost").alias("training_cost"),
+            F.stddev_samp("training_cost").alias("training_cost_stddev"),
+            F.avg("minimum_cluster_size").alias("minimum_cluster_size"),
+            F.avg("maximum_cluster_size").alias("maximum_cluster_size"),
+            F.avg("average_dominant_district_share").alias(
+                "average_dominant_district_share"
+            ),
+        )
+        .fillna({"silhouette_stddev": 0.0, "training_cost_stddev": 0.0})
+        .orderBy("k")
+    )
+    best_k = int(scores.orderBy(F.desc("silhouette_score"), "k").first().k)
+    best_model = KMeans(
+        k=best_k,
+        seed=seeds[0],
+        featuresCol="features",
+        predictionCol="cluster",
+    ).fit(training_features)
     full_features = scaler_model.transform(assembler.transform(input_frame))
     clustered_records = (
         best_model.transform(full_features)
@@ -201,4 +223,11 @@ def fit_spatial_temporal_clusters(
         )
         .orderBy("cluster", F.desc("incident_count"))
     )
-    return ClusteringResult(best_k, scores, clustered_records, cluster_summary, district_alignment)
+    return ClusteringResult(
+        best_k,
+        scores,
+        stability_scores,
+        clustered_records,
+        cluster_summary,
+        district_alignment,
+    )

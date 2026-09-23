@@ -62,7 +62,7 @@ PYTHONPATH=src python3 -m chicago_crime.run_tasks cluster \
   --output-dir outputs
 ```
 
-Run Task 4 arrest prediction with Random Forest:
+Run Task 4 arrest prediction and algorithm comparison:
 
 ```bash
 PYTHONPATH=src python3 -m chicago_crime.run_tasks model \
@@ -70,9 +70,9 @@ PYTHONPATH=src python3 -m chicago_crime.run_tasks model \
   --output-dir outputs
 ```
 
-Task outputs are saved as Parquet for use in charts and tables. The model uses `Arrest` as its binary target and compares a majority-class baseline, unweighted Random Forest, class-weighted Random Forest, alternative probability thresholds, and a time-based holdout. ROC-AUC, PR-AUC, precision, recall, F1, balanced accuracy, feature importance, and class-skew evidence are retained.
+Task outputs are saved as Parquet for use in charts and tables. The model uses `Arrest` as its binary target and compares a majority-class baseline, unweighted and class-weighted Random Forests, weighted Logistic Regression, weighted Gradient-Boosted Trees, alternative probability thresholds, and a time-based holdout. ROC-AUC, PR-AUC, precision, recall, F1, balanced accuracy, feature importance, and class-skew evidence are retained.
 
-Task 3 requires a crime timestamp with a real time-of-day component. It selects K from a reproducible 0.2% training sample, records silhouette and training-cost evidence for every candidate, then assigns clusters and calculates concentration and district-alignment summaries across all valid records.
+Task 3 requires a crime timestamp with a real time-of-day component. It evaluates K from two to six on a reproducible 0.2% training sample using seeds 42, 123, and 2026. The mean and standard deviation of silhouette and training cost are retained alongside every seeded run before the selected model assigns clusters and calculates concentration and district-alignment summaries across all valid records.
 
 Run Task 2 with the cleaned NOAA Chicago Midway Airport output from Task 1. The station is a documented city-wide weather proxy; crime latitude and longitude remain separate inputs for Task 3 spatial analysis.
 

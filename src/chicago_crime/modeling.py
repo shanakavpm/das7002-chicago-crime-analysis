@@ -3,9 +3,9 @@
 from dataclasses import dataclass
 
 from pyspark.ml import Pipeline
-from pyspark.ml.classification import RandomForestClassifier
+from pyspark.ml.classification import GBTClassifier, LogisticRegression, RandomForestClassifier
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
-from pyspark.ml.feature import StringIndexer, VectorAssembler
+from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
 from pyspark.ml.functions import vector_to_array
 from pyspark.sql import DataFrame, functions as F
 from pyspark.sql.window import Window
@@ -15,6 +15,8 @@ from pyspark.storagelevel import StorageLevel
 NUMERIC_FEATURES = ("latitude", "longitude", "hour", "month", "district", "community_area")
 MODEL_PARTITIONS = 8
 RANDOM_FOREST_TREES = 20
+GRADIENT_BOOSTED_TREE_ITERATIONS = 20
+LOGISTIC_REGRESSION_ITERATIONS = 50
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,7 @@ class ModelingResult:
     """Outputs required to evaluate and discuss the arrest model."""
 
     model: object
+    comparison_models: dict[str, object]
     predictions: DataFrame
     confusion_matrix: DataFrame
     metrics: DataFrame
@@ -85,6 +88,57 @@ def create_random_forest_pipeline(weighted: bool) -> Pipeline:
     if weighted:
         classifier = classifier.setWeightCol("class_weight")
     return Pipeline(stages=[type_indexer, assembler, classifier])
+
+
+def create_gradient_boosted_tree_pipeline(weighted: bool = True) -> Pipeline:
+    """Build a GBT comparison pipeline using the same indexed inputs as Random Forest."""
+    type_indexer = StringIndexer(
+        inputCol="primary_type",
+        outputCol="primary_type_index",
+        handleInvalid="keep",
+    )
+    assembler = VectorAssembler(
+        inputCols=[*NUMERIC_FEATURES, "primary_type_index"],
+        outputCol="features",
+    )
+    classifier = GBTClassifier(
+        labelCol="label",
+        featuresCol="features",
+        maxIter=GRADIENT_BOOSTED_TREE_ITERATIONS,
+        maxBins=64,
+        seed=42,
+    )
+    if weighted:
+        classifier = classifier.setWeightCol("class_weight")
+    return Pipeline(stages=[type_indexer, assembler, classifier])
+
+
+def create_logistic_regression_pipeline(weighted: bool = True) -> Pipeline:
+    """Build a weighted linear baseline with one-hot encoded crime categories."""
+    type_indexer = StringIndexer(
+        inputCol="primary_type",
+        outputCol="primary_type_index",
+        handleInvalid="keep",
+    )
+    type_encoder = OneHotEncoder(
+        inputCols=["primary_type_index"],
+        outputCols=["primary_type_vector"],
+        handleInvalid="keep",
+    )
+    assembler = VectorAssembler(
+        inputCols=[*NUMERIC_FEATURES, "primary_type_vector"],
+        outputCol="features",
+    )
+    classifier = LogisticRegression(
+        labelCol="label",
+        featuresCol="features",
+        maxIter=LOGISTIC_REGRESSION_ITERATIONS,
+        regParam=0.01,
+        elasticNetParam=0.0,
+    )
+    if weighted:
+        classifier = classifier.setWeightCol("class_weight")
+    return Pipeline(stages=[type_indexer, type_encoder, assembler, classifier])
 
 
 def calculate_binary_metrics(
@@ -254,7 +308,7 @@ def create_roc_curve(predictions: DataFrame) -> DataFrame:
 
 
 def fit_arrest_model(crime_frame: DataFrame) -> ModelingResult:
-    """Fit Random Forest, evaluate the holdout set, and surface class imbalance."""
+    """Compare three classifiers and retain detailed evidence for weighted Random Forest."""
     # The source Parquet can contain hundreds of small partition files. A bounded
     # partition count avoids local scheduling overhead while retaining Spark ML.
     modelling_data = (
@@ -289,8 +343,13 @@ def fit_arrest_model(crime_frame: DataFrame) -> ModelingResult:
 
     unweighted_model = create_random_forest_pipeline(weighted=False).fit(train_frame)
     unweighted_predictions = unweighted_model.transform(test_frame).persist(StorageLevel.DISK_ONLY)
-    weighted_model = create_random_forest_pipeline(weighted=True).fit(add_class_weights(train_frame))
+    weighted_train_frame = add_class_weights(train_frame).persist(StorageLevel.DISK_ONLY)
+    weighted_model = create_random_forest_pipeline(weighted=True).fit(weighted_train_frame)
     predictions = weighted_model.transform(test_frame).persist(StorageLevel.DISK_ONLY)
+    logistic_model = create_logistic_regression_pipeline().fit(weighted_train_frame)
+    logistic_predictions = logistic_model.transform(test_frame).persist(StorageLevel.DISK_ONLY)
+    gbt_model = create_gradient_boosted_tree_pipeline().fit(weighted_train_frame)
+    gbt_predictions = gbt_model.transform(test_frame).persist(StorageLevel.DISK_ONLY)
 
     majority_predictions = test_frame.select("label").withColumn("prediction", F.lit(0.0))
     comparison_rows = [
@@ -310,7 +369,21 @@ def fit_arrest_model(crime_frame: DataFrame) -> ModelingResult:
             model_name="weighted_random_forest",
             validation_strategy="seeded_random_holdout",
         ),
+        calculate_binary_metrics(
+            logistic_predictions,
+            model_name="weighted_logistic_regression",
+            validation_strategy="seeded_random_holdout",
+        ),
+        calculate_binary_metrics(
+            gbt_predictions,
+            model_name="weighted_gradient_boosted_trees",
+            validation_strategy="seeded_random_holdout",
+        ),
     ]
+    unweighted_predictions.unpersist()
+    logistic_predictions.unpersist()
+    gbt_predictions.unpersist()
+    weighted_train_frame.unpersist()
 
     maximum_year = int(modelling_data.agg(F.max("year")).first()[0])
     temporal_cutoff_year = maximum_year - 3
@@ -374,6 +447,10 @@ def fit_arrest_model(crime_frame: DataFrame) -> ModelingResult:
     )
     return ModelingResult(
         model=weighted_model,
+        comparison_models={
+            "weighted_logistic_regression": logistic_model,
+            "weighted_gradient_boosted_trees": gbt_model,
+        },
         predictions=prediction_output,
         confusion_matrix=confusion_matrix,
         metrics=metrics,

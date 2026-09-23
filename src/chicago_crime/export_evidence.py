@@ -89,7 +89,12 @@ def run() -> None:
                     args.evidence_dir / f"task2_{table_name}.csv",
                 )
         if "task3" in args.tasks:
-            for table_name in ("silhouette_scores", "cluster_summary", "district_alignment"):
+            for table_name in (
+                "silhouette_scores",
+                "stability_scores",
+                "cluster_summary",
+                "district_alignment",
+            ):
                 export_small_frame(
                     spark.read.parquet(str(args.task3_output_dir / table_name)),
                     args.evidence_dir / f"task3_{table_name}.csv",

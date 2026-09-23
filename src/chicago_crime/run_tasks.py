@@ -15,6 +15,7 @@ from .visualizations import (
     save_elbow_chart,
     save_feature_importance_chart,
     save_hourly_crime_chart,
+    save_model_comparison_chart,
     save_roc_curve,
     save_silhouette_chart,
     save_threshold_metrics_chart,
@@ -50,6 +51,7 @@ def write_task3_outputs(result: ClusteringResult, output_dir: Path) -> None:
         seed=42,
     ).limit(CLUSTER_OUTPUT_SAMPLE_SIZE)
     result.scores.write.mode("overwrite").parquet(f"{task_dir}/silhouette_scores")
+    result.stability_scores.write.mode("overwrite").parquet(f"{task_dir}/stability_scores")
     cluster_sample.write.mode("overwrite").parquet(f"{task_dir}/clustered_records")
     result.cluster_summary.write.mode("overwrite").parquet(f"{task_dir}/cluster_summary")
     result.district_alignment.write.mode("overwrite").parquet(f"{task_dir}/district_alignment")
@@ -76,6 +78,8 @@ def write_task4_outputs(result: ModelingResult, output_dir: Path) -> None:
     result.feature_importance.write.mode("overwrite").parquet(f"{task_dir}/feature_importance")
     result.roc_curve.write.mode("overwrite").parquet(f"{task_dir}/roc_curve")
     result.model.write().overwrite().save(f"{task_dir}/random_forest_model")
+    for model_name, model in result.comparison_models.items():
+        model.write().overwrite().save(f"{task_dir}/{model_name}_model")
     save_roc_curve(result.roc_curve, output_dir / "charts" / "task4_roc_curve.png")
     save_crime_type_distribution_chart(
         result.crime_type_distribution,
@@ -88,6 +92,10 @@ def write_task4_outputs(result: ModelingResult, output_dir: Path) -> None:
     save_threshold_metrics_chart(
         result.threshold_metrics,
         output_dir / "charts" / "task4_threshold_metrics.png",
+    )
+    save_model_comparison_chart(
+        result.model_comparison,
+        output_dir / "charts" / "task4_model_comparison.png",
     )
     LOGGER.info("task4_class_distribution")
     result.class_distribution.show(truncate=False)

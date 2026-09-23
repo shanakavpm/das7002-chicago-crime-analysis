@@ -26,12 +26,22 @@ def save_roc_curve(roc_points: DataFrame, output_path: Path) -> None:
 
 
 def save_silhouette_chart(scores: DataFrame, output_path: Path) -> None:
-    """Save a K-versus-silhouette chart for Task 3."""
+    """Save mean silhouette with seed-to-seed variability for Task 3."""
     values = scores.orderBy("k").toPandas()
     _prepare_output(output_path)
     figure, axis = plt.subplots(figsize=(7, 5))
-    axis.plot(values["k"], values["silhouette_score"], marker="o")
-    axis.set(xlabel="Number of clusters K", ylabel="Silhouette score", title="K-Means Cluster Selection")
+    axis.errorbar(
+        values["k"],
+        values["silhouette_score"],
+        yerr=values["silhouette_stddev"],
+        marker="o",
+        capsize=4,
+    )
+    axis.set(
+        xlabel="Number of clusters K",
+        ylabel="Mean silhouette score",
+        title="K-Means Cluster Selection Across Three Seeds",
+    )
     axis.grid(alpha=0.25)
     figure.tight_layout()
     figure.savefig(output_path, dpi=180)
@@ -143,6 +153,33 @@ def save_threshold_metrics_chart(threshold_metrics: DataFrame, output_path: Path
     axis.set_ylim(0, 1)
     axis.grid(alpha=0.25)
     axis.legend()
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=180)
+    plt.close(figure)
+
+
+def save_model_comparison_chart(model_comparison: DataFrame, output_path: Path) -> None:
+    """Compare precision, recall, and F1 for models on the seeded random holdout."""
+    values = (
+        model_comparison.filter("validation_strategy = 'seeded_random_holdout'")
+        .select("model_name", "precision", "recall", "f1_score")
+        .toPandas()
+    )
+    _prepare_output(output_path)
+    figure, axis = plt.subplots(figsize=(10, 6))
+    positions = range(len(values))
+    width = 0.24
+    for offset, metric in zip((-width, 0, width), ("precision", "recall", "f1_score")):
+        axis.bar([position + offset for position in positions], values[metric], width, label=metric)
+    labels = values["model_name"].str.replace("_", " ")
+    axis.set_xticks(list(positions), labels, rotation=18, ha="right")
+    axis.set(
+        ylabel="Metric value",
+        title="Arrest Prediction Model Comparison",
+        ylim=(0, 1),
+    )
+    axis.legend()
+    axis.grid(axis="y", alpha=0.25)
     figure.tight_layout()
     figure.savefig(output_path, dpi=180)
     plt.close(figure)
