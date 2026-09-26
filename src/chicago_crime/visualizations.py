@@ -72,9 +72,9 @@ def save_weather_impact_chart(weather_impact: DataFrame, output_path: Path) -> N
     figure, axis = plt.subplots(figsize=(8, 5))
     axis.bar(values["weather_condition"], values["average_daily_crime_count"])
     axis.set(
-        xlabel="Observed weather condition",
+        xlabel="ERA5 weather condition",
         ylabel="Average daily crime count",
-        title="Crime Frequency by Weather Event",
+        title="Crime Frequency by ERA5 Weather Condition",
     )
     axis.tick_params(axis="x", rotation=20)
     figure.tight_layout()

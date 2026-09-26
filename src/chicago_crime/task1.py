@@ -15,11 +15,33 @@ LOGGER = logging.getLogger(__name__)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse Task 1 census, weather, quality, and output paths."""
-    parser = argparse.ArgumentParser(description="Clean census and weather datasets for DAS7002 Task 1.")
-    parser.add_argument("--census-input", required=True, type=Path, help="Path to the raw census CSV.")
-    parser.add_argument("--census-output", required=True, type=Path, help="Directory for cleaned census Parquet output.")
-    parser.add_argument("--weather-input", required=True, type=Path, help="Path to the raw NOAA weather CSV.")
-    parser.add_argument("--weather-output", required=True, type=Path, help="Directory for cleaned hourly weather Parquet.")
+    parser = argparse.ArgumentParser(
+        description="Clean census and weather datasets for DAS7002 Task 1."
+    )
+    parser.add_argument(
+        "--census-input",
+        required=True,
+        type=Path,
+        help="Path to the raw census CSV.",
+    )
+    parser.add_argument(
+        "--census-output",
+        required=True,
+        type=Path,
+        help="Directory for cleaned census Parquet output.",
+    )
+    parser.add_argument(
+        "--weather-input",
+        required=True,
+        type=Path,
+        help="Path to the raw ERA5 weather CSV.",
+    )
+    parser.add_argument(
+        "--weather-output",
+        required=True,
+        type=Path,
+        help="Directory for cleaned hourly weather Parquet.",
+    )
     parser.add_argument(
         "--weather-quality-output",
         required=True,
@@ -31,7 +53,7 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def run() -> None:
-    """Clean the census lookup and NOAA weather data used by Task 2."""
+    """Clean the census lookup and ERA5 weather data used by Task 2."""
     configure_logging()
     args = parse_arguments()
     spark = create_spark_session("DAS7002-Chicago-Census-ETL")

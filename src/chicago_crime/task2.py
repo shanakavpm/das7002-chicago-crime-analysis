@@ -34,7 +34,7 @@ def weather_condition_expression():
 
 
 def prepare_crime_hourly_counts(crime_frame: DataFrame) -> DataFrame:
-    """Count valid cleaned crime records at the same hourly grain as NOAA data."""
+    """Count valid cleaned crime records at the same hourly grain as ERA5 data."""
     return (
         crime_frame.filter(F.col("incident_timestamp").isNotNull())
         .withColumn("crime_date", F.to_date("incident_timestamp"))
@@ -48,7 +48,7 @@ def create_daily_crime_weather(
     crime_frame: DataFrame,
     weather_hourly: DataFrame,
 ) -> DataFrame:
-    """Join city-wide Midway observations to hourly crime frequency, then summarise days."""
+    """Join city-centre ERA5 records to hourly crime frequency, then summarise days."""
     crime_hourly = prepare_crime_hourly_counts(crime_frame)
     hourly_join = weather_hourly.join(
         crime_hourly,
@@ -78,7 +78,7 @@ def create_daily_crime_weather(
 
 
 def summarise_weather_impact(daily_crime_weather: DataFrame) -> DataFrame:
-    """Compare daily crime frequency across observed weather conditions."""
+    """Compare daily crime frequency across ERA5 weather conditions."""
     return (
         daily_crime_weather.withColumn("weather_condition", weather_condition_expression())
         .groupBy("weather_condition")
@@ -277,7 +277,7 @@ def run_task2(
     weather_hourly: DataFrame,
     census_frame: DataFrame,
 ) -> Task2Result:
-    """Analyze Task 1 outputs using NOAA Midway as the city-wide weather proxy."""
+    """Analyse Task 1 outputs using a fixed Chicago ERA5 grid cell as the weather proxy."""
     daily_crime_weather = create_daily_crime_weather(crime_frame, weather_hourly).cache()
     temporal_patterns = create_temporal_patterns(crime_frame).cache()
     analysis_period = daily_crime_weather.agg(

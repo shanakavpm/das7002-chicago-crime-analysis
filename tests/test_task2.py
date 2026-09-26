@@ -1,7 +1,7 @@
-"""Tests for NOAA weather cleaning and the Task 2 daily crime-weather join."""
+"""Tests for ERA5 weather cleaning and the Task 2 daily crime-weather join."""
 
 from pyspark.sql import functions as F
-from pyspark.sql.types import BooleanType, IntegerType, StringType, StructField, StructType, TimestampType
+from pyspark.sql.types import StringType, StructField, StructType
 
 from chicago_crime.task2 import (
     create_daily_crime_weather,
@@ -17,30 +17,38 @@ from chicago_crime.weather import (
 
 WEATHER_SCHEMA = StructType(
     [
-        StructField("STATION", StringType(), True),
-        StructField("DATE", StringType(), True),
-        StructField("HourlyDryBulbTemperature", StringType(), True),
-        StructField("HourlyPrecipitation", StringType(), True),
-        StructField("HourlyPresentWeatherType", StringType(), True),
-        StructField("HourlyRelativeHumidity", StringType(), True),
-        StructField("HourlyWindSpeed", StringType(), True),
-    ]
-)
-
-CRIME_SCHEMA = StructType(
-    [
-        StructField("incident_timestamp", TimestampType(), True),
-        StructField("community_area", IntegerType(), True),
-        StructField("has_valid_community_area", BooleanType(), True),
+        StructField("weather_location", StringType(), True),
+        StructField("weather_timestamp", StringType(), True),
+        StructField("temperature_2m", StringType(), True),
+        StructField("precipitation", StringType(), True),
+        StructField("relative_humidity_2m", StringType(), True),
+        StructField("wind_speed_10m", StringType(), True),
+        StructField("weather_code", StringType(), True),
     ]
 )
 
 
-def test_noaa_trace_precipitation_and_events_are_cleaned(spark):
+def test_era5_measurements_and_events_are_cleaned(spark):
     weather = spark.createDataFrame(
         [
-            ("72534014819", "2012-01-01T12:10:00", "32", "T", "-SN:03 BR:1", "80", "12"),
-            ("72534014819", "2012-01-01T12:50:00", "34", "0.10", "RA:02", "82", "14"),
+            (
+                "Chicago city centre ERA5 grid cell",
+                "2012-01-01T12:10",
+                "32",
+                "0.00",
+                "80",
+                "12",
+                "71",
+            ),
+            (
+                "Chicago city centre ERA5 grid cell",
+                "2012-01-01T12:50",
+                "34",
+                "0.10",
+                "82",
+                "14",
+                "61",
+            ),
         ],
         WEATHER_SCHEMA,
     )
@@ -54,7 +62,10 @@ def test_noaa_trace_precipitation_and_events_are_cleaned(spark):
     assert hourly.has_snow == 1
     assert hourly.has_rain == 1
 
-    quality = weather_quality_summary(weather, aggregate_hourly_weather(clean_weather_records(weather))).first()
+    quality = weather_quality_summary(
+        weather,
+        aggregate_hourly_weather(clean_weather_records(weather)),
+    ).first()
     assert quality.raw_weather_record_count == 2
     assert quality.invalid_weather_timestamp_count == 0
     assert quality.clean_hourly_weather_count == 1
@@ -63,17 +74,39 @@ def test_noaa_trace_precipitation_and_events_are_cleaned(spark):
 def test_daily_weather_join_fills_hours_without_crime_as_zero(spark):
     weather = spark.createDataFrame(
         [
-            ("72534014819", "2012-01-01T12:10:00", "32", "0.00", "", "80", "12"),
-            ("72534014819", "2012-01-01T13:10:00", "33", "0.20", "RA:02", "82", "14"),
+            (
+                "Chicago city centre ERA5 grid cell",
+                "2012-01-01T12:10",
+                "32",
+                "0.00",
+                "80",
+                "12",
+                "0",
+            ),
+            (
+                "Chicago city centre ERA5 grid cell",
+                "2012-01-01T13:10",
+                "33",
+                "0.20",
+                "82",
+                "14",
+                "61",
+            ),
         ],
         WEATHER_SCHEMA,
     )
     crime = spark.createDataFrame(
         [("2012-01-01 12:30:00", 1, True), ("2012-01-01 12:45:00", 1, True)],
         ["incident_timestamp_text", "community_area", "has_valid_community_area"],
-    ).withColumn("incident_timestamp", F.col("incident_timestamp_text").cast("timestamp")).drop("incident_timestamp_text")
+    ).withColumn(
+        "incident_timestamp",
+        F.col("incident_timestamp_text").cast("timestamp"),
+    ).drop("incident_timestamp_text")
 
-    daily = create_daily_crime_weather(crime, aggregate_hourly_weather(clean_weather_records(weather)))
+    daily = create_daily_crime_weather(
+        crime,
+        aggregate_hourly_weather(clean_weather_records(weather)),
+    )
     row = daily.first()
 
     assert row.crime_count == 2
