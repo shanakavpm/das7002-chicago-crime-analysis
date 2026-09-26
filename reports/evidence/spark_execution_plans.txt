@@ -1,0 +1,102 @@
+
+PARTITION PRUNING
+== Physical Plan ==
+* ColumnarToRow (2)
++- Scan parquet  (1)
+
+
+(1) Scan parquet 
+Output [3]: [crime_id#0L, year#19, district#20]
+Batched: true
+Location: InMemoryFileIndex [file:/C:/Users/MaheshShanaka/Documents/AST/das7002-chicago-crime-analysis/data/processed/chicago_crime_parquet]
+PartitionFilters: [isnotnull(year#19), isnotnull(district#20), (year#19 = 2012), (district#20 = 11)]
+ReadSchema: struct<crime_id:bigint>
+
+(2) ColumnarToRow [codegen id : 1]
+Input [3]: [crime_id#0L, year#19, district#20]
+
+
+
+BROADCAST JOIN
+== Physical Plan ==
+AdaptiveSparkPlan (12)
++- HashAggregate (11)
+   +- Exchange (10)
+      +- HashAggregate (9)
+         +- Project (8)
+            +- BroadcastHashJoin Inner BuildRight (7)
+               :- Project (3)
+               :  +- Filter (2)
+               :     +- Scan parquet  (1)
+               +- BroadcastExchange (6)
+                  +- Filter (5)
+                     +- Scan parquet  (4)
+
+
+(1) Scan parquet 
+Output [4]: [community_area#12, has_valid_community_area#18, year#19, district#20]
+Batched: true
+Location: InMemoryFileIndex [file:/C:/Users/MaheshShanaka/Documents/AST/das7002-chicago-crime-analysis/data/processed/chicago_crime_parquet]
+PartitionFilters: [isnotnull(year#19), (year#19 >= 2008), (year#19 <= 2012)]
+PushedFilters: [IsNotNull(has_valid_community_area), EqualTo(has_valid_community_area,true), IsNotNull(community_area)]
+ReadSchema: struct<community_area:int,has_valid_community_area:boolean>
+
+(2) Filter
+Input [4]: [community_area#12, has_valid_community_area#18, year#19, district#20]
+Condition : ((isnotnull(has_valid_community_area#18) AND has_valid_community_area#18) AND isnotnull(community_area#12))
+
+(3) Project
+Output [1]: [community_area#12]
+Input [4]: [community_area#12, has_valid_community_area#18, year#19, district#20]
+
+(4) Scan parquet 
+Output [2]: [community_area#42, community_name#43]
+Batched: true
+Location: InMemoryFileIndex [file:/C:/Users/MaheshShanaka/Documents/AST/das7002-chicago-crime-analysis/data/processed/chicago_census_parquet]
+PushedFilters: [IsNotNull(community_area)]
+ReadSchema: struct<community_area:int,community_name:string>
+
+(5) Filter
+Input [2]: [community_area#42, community_name#43]
+Condition : isnotnull(community_area#42)
+
+(6) BroadcastExchange
+Input [2]: [community_area#42, community_name#43]
+Arguments: HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)),false), [plan_id=42]
+
+(7) BroadcastHashJoin
+Left keys [1]: [community_area#12]
+Right keys [1]: [community_area#42]
+Join type: Inner
+Join condition: None
+
+(8) Project
+Output [2]: [community_area#12, community_name#43]
+Input [3]: [community_area#12, community_area#42, community_name#43]
+
+(9) HashAggregate
+Input [2]: [community_area#12, community_name#43]
+Keys [2]: [community_area#12, community_name#43]
+Functions [1]: [partial_count(1)]
+Aggregate Attributes [1]: [count#128L]
+Results [3]: [community_area#12, community_name#43, count#129L]
+
+(10) Exchange
+Input [3]: [community_area#12, community_name#43, count#129L]
+Arguments: hashpartitioning(community_area#12, community_name#43, 8), ENSURE_REQUIREMENTS, [plan_id=47]
+
+(11) HashAggregate
+Input [3]: [community_area#12, community_name#43, count#129L]
+Keys [2]: [community_area#12, community_name#43]
+Functions [1]: [count(1)]
+Aggregate Attributes [1]: [count(1)#123L]
+Results [3]: [community_area#12, community_name#43, count(1)#123L AS crime_count#124L]
+
+(12) AdaptiveSparkPlan
+Output [3]: [community_area#12, community_name#43, crime_count#124L]
+Arguments: isFinalPlan=false
+
+
+SUCCESS: The process with PID 35056 (child process of PID 38348) has been terminated.
+SUCCESS: The process with PID 38348 (child process of PID 26280) has been terminated.
+SUCCESS: The process with PID 26280 (child process of PID 32876) has been terminated.

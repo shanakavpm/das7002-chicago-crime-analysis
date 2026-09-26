@@ -134,6 +134,20 @@ python -m chicago_crime.run_tasks model `
   --output-dir outputs
 ```
 
+### 6. Capture Spark execution-plan evidence
+
+After Task 1 has created the processed crime and census Parquet datasets, capture the
+formatted plans used to verify partition pruning and the broadcast join:
+
+```powershell
+python scripts/show_spark_plans.py > reports/evidence/spark_execution_plans.txt
+```
+
+The Parquet scan should show `PartitionFilters` for `year = 2012` and
+`district = 11`. The fact-to-lookup join should show `BroadcastHashJoin` for the
+77-row census table. These plans verify the strategies selected by Spark; they do
+not, by themselves, quantify a speed-up.
+
 On macOS or Linux, replace PowerShell's backtick line continuations with `\`.
 
 ## Export report evidence
@@ -152,8 +166,8 @@ You may list only completed tasks, for example `--tasks task1 task2`. Files are 
 |---|---|
 | `data/processed/` | Cleaned and quality-control Parquet datasets |
 | `outputs/task2/` | EDA result tables |
-| `outputs/task3/` | Cluster scores, summaries, and sampled assignments |
-| `outputs/task4/` | Predictions, evaluation tables, and trained models |
+| `outputs/task3/` | K=2-selected and K=6 comparison assignments, cluster scores, summaries, and district alignment |
+| `outputs/task4/` | Predictions, random and temporal evaluation tables, and trained models |
 | `outputs/charts/` | Charts produced by Tasks 2–4 |
 | `reports/evidence/` | Small CSV tables for reporting |
 | `reports/figures/` | Selected figures retained in Git |

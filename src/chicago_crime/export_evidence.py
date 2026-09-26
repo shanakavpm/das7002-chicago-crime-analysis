@@ -94,6 +94,7 @@ def run() -> None:
                 "stability_scores",
                 "cluster_summary",
                 "district_alignment",
+                "district_alignment_k6",
             ):
                 export_small_frame(
                     spark.read.parquet(str(args.task3_output_dir / table_name)),

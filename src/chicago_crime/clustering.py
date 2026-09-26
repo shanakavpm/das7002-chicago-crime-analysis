@@ -26,6 +26,7 @@ class ClusteringResult:
     clustered_records: DataFrame
     cluster_summary: DataFrame
     district_alignment: DataFrame
+    detailed_clustered_records: DataFrame
 
 
 def prepare_clustering_input(crime_frame: DataFrame) -> DataFrame:
@@ -166,6 +167,18 @@ def fit_spatial_temporal_clusters(
         predictionCol="cluster",
     ).fit(training_features)
     full_features = scaler_model.transform(assembler.transform(input_frame))
+    detail_model = KMeans(
+        k=6,
+        seed=seeds[0],
+        featuresCol="features",
+        predictionCol="cluster",
+    ).fit(training_features)
+    detailed_clustered_records = (
+        detail_model.transform(full_features)
+        .select("crime_id", "latitude", "longitude", "hour", "district", "cluster")
+        .persist(StorageLevel.DISK_ONLY)
+    )
+    detailed_clustered_records.count()
     clustered_records = (
         best_model.transform(full_features)
         .select("crime_id", "latitude", "longitude", "hour", "district", "cluster")
@@ -230,4 +243,5 @@ def fit_spatial_temporal_clusters(
         clustered_records,
         cluster_summary,
         district_alignment,
+        detailed_clustered_records,
     )

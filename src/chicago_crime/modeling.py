@@ -393,21 +393,32 @@ def fit_arrest_model(crime_frame: DataFrame) -> ModelingResult:
         temporal_train.select("label").distinct().count() == 2
         and temporal_test.select("label").distinct().count() == 2
     ):
-        temporal_model = create_random_forest_pipeline(weighted=True).fit(
-            add_class_weights(temporal_train)
-        )
-        temporal_predictions = temporal_model.transform(temporal_test).persist(
+        temporal_weighted_train = add_class_weights(temporal_train).persist(
             StorageLevel.DISK_ONLY
         )
-        comparison_rows.append(
-            calculate_binary_metrics(
-                temporal_predictions,
-                model_name="weighted_random_forest",
-                validation_strategy="temporal_holdout",
-                temporal_cutoff_year=temporal_cutoff_year,
+
+        temporal_pipelines = {
+            "weighted_random_forest": create_random_forest_pipeline(weighted=True),
+            "weighted_logistic_regression": create_logistic_regression_pipeline(),
+            "weighted_gradient_boosted_trees": create_gradient_boosted_tree_pipeline(),
+        }
+
+        for model_name, pipeline in temporal_pipelines.items():
+            temporal_model = pipeline.fit(temporal_weighted_train)
+            temporal_predictions = temporal_model.transform(temporal_test).persist(
+                StorageLevel.DISK_ONLY
             )
-        )
-        temporal_predictions.unpersist()
+            comparison_rows.append(
+                calculate_binary_metrics(
+                    temporal_predictions,
+                    model_name=model_name,
+                    validation_strategy="temporal_holdout",
+                    temporal_cutoff_year=temporal_cutoff_year,
+                )
+            )
+            temporal_predictions.unpersist()
+
+        temporal_weighted_train.unpersist()
 
     comparison_columns = [
         "model_name",

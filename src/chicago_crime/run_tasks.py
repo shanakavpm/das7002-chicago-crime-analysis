@@ -4,6 +4,8 @@ import argparse
 import logging
 from pathlib import Path
 
+from pyspark.sql import Window, functions as F
+
 from .clustering import ClusteringResult, fit_spatial_temporal_clusters
 from .logging_utils import configure_logging
 from .modeling import ModelingResult, fit_arrest_model
@@ -58,9 +60,40 @@ def write_task3_outputs(result: ClusteringResult, output_dir: Path) -> None:
     save_silhouette_chart(result.scores, output_dir / "charts" / "task3_silhouette.png")
     save_elbow_chart(result.scores, output_dir / "charts" / "task3_elbow.png")
     save_cluster_map(cluster_sample, output_dir / "charts" / "task3_cluster_map.png")
+
+    detail_sample = (
+        result.detailed_clustered_records.sample(
+            withReplacement=False,
+            fraction=0.02,
+            seed=42,
+        ).limit(CLUSTER_OUTPUT_SAMPLE_SIZE)
+    )
+    detail_sample.write.mode("overwrite").parquet(f"{task_dir}/clustered_records_k6")
+    save_cluster_map(detail_sample, output_dir / "charts" / "task3_cluster_map_k6.png")
+
+    district_counts_k6 = (
+        result.detailed_clustered_records.filter(F.col("district").isNotNull())
+        .groupBy("cluster", "district")
+        .agg(F.count("*").alias("incident_count"))
+    )
+    district_alignment_k6 = (
+        district_counts_k6.withColumn(
+            "cluster_share",
+            F.round(
+                F.col("incident_count")
+                / F.sum("incident_count").over(Window.partitionBy("cluster")),
+                4,
+            ),
+        ).orderBy("cluster", F.desc("incident_count"))
+    )
+    district_alignment_k6.write.mode("overwrite").parquet(
+        f"{task_dir}/district_alignment_k6"
+    )
     LOGGER.info("best_k_selected value=%d", result.best_k)
     result.scores.show(truncate=False)
     result.cluster_summary.show(truncate=False)
+    result.clustered_records.unpersist()
+    result.detailed_clustered_records.unpersist()
 
 
 def write_task4_outputs(result: ModelingResult, output_dir: Path) -> None:
