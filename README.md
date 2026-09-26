@@ -1,6 +1,6 @@
 # DAS7002 Chicago Crime Analysis
 
-This project contains a reproducible PySpark workflow for all four DAS7002 practical-assignment tasks. It cleans Chicago Crime and socioeconomic data, performs weather and spatial EDA, clusters spatial-temporal activity zones, and evaluates a Random Forest arrest-prediction model.
+This project contains a reproducible PySpark workflow for all four DAS7002 practical-assignment tasks. It cleans Chicago Crime, socioeconomic, and weather data; performs temporal and spatial exploratory analysis; clusters spatial-temporal activity zones; and compares distributed arrest-prediction models.
 
 ## Project layout
 
@@ -9,9 +9,28 @@ data/raw/                 Input CSV files (not committed)
 data/processed/           Generated Parquet output (not committed)
 outputs/                  Analytical tables, charts, and trained model
 reports/evidence/         Compact CSV evidence tables
+reports/figures/          Selected charts retained for review
 src/chicago_crime/        Reusable pipeline code
 tests/                    Unit and integration tests
 ```
+
+The repository intentionally excludes raw datasets, generated Parquet files, full prediction outputs, Spark metadata, and trained-model directories. These artifacts are reproducible but too large and noisy for source control. Compact evidence tables and selected figures are committed so that results can be reviewed without running the complete pipeline.
+
+## Data preparation
+
+Download the three public datasets and save them using these local names:
+
+```text
+data/raw/chicago_crime.csv
+data/raw/chicago_census.csv
+data/raw/chicago_weather.csv
+```
+
+- Chicago crime data: https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2
+- Selected Chicago socioeconomic indicators: https://data.cityofchicago.org/api/views/kn9c-c2s2/
+- NOAA Local Climatological Data: https://www.ncei.noaa.gov/products/land-based-station/local-climatological-data
+
+The weather input used for the report contains hourly observations from Chicago Midway Airport for 2008-2012. Raw data and generated outputs remain local through `.gitignore` rules.
 
 ## Run the pipeline
 
@@ -40,6 +59,8 @@ The pipeline rejects records with an invalid incident timestamp or crime ID, rep
 - Data-quality summary printed by the pipeline
 - Cleaning rules in `src/chicago_crime/transforms.py`
 - A screenshot of the Parquet partition output by `year` and `district`
+- Compact result tables in `reports/evidence/`
+- Selected result charts in `reports/figures/`
 
 ## Task commands
 
@@ -86,10 +107,19 @@ PYTHONPATH=src python3 -m chicago_crime.run_tasks eda \
 
 Task 2 writes explicit PySpark SQL temporal patterns, daily crime-weather counts, seasonal weather comparisons, effect sizes, weekday/weekend patterns, correlations, 7-day community-area crime averages, and census-enriched spatial summaries to `outputs/task2`.
 
-Local Spark defaults to four workers and a 2 GB driver heap. Override these settings when needed with `DAS7002_SPARK_MASTER` and `DAS7002_SPARK_DRIVER_MEMORY`.
-
 Export the compact tables for all completed tasks as ordinary CSV files for Excel and the report:
 
 ```bash
 PYTHONPATH=src python3 -m chicago_crime.export_evidence --tasks task1 task2 task3 task4
 ```
+
+## Verification
+
+Run the complete automated test suite with:
+
+```bash
+PYTHONPATH=src python3 -m pytest -q
+```
+
+The suite covers schema validation, cleaning rules, weather parsing, Spark SQL output, clustering input validation, model evaluation, class weighting, threshold behaviour, and an end-to-end partitioned-Parquet round trip.
+
