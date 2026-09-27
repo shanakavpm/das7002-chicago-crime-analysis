@@ -129,10 +129,14 @@ python -m chicago_crime.run_tasks cluster `
 ### 5. Run arrest-prediction modelling
 
 ```powershell
+$env:DAS7002_SPARK_MASTER = "local[2]"
+$env:DAS7002_SPARK_DRIVER_MEMORY = "4g"
 python -m chicago_crime.run_tasks model `
   --crime-input data/processed/chicago_crime_parquet `
   --output-dir outputs
 ```
+
+On Windows, set `JAVA_HOME` and, if required, `HADOOP_HOME` to their installed locations before running Spark.
 
 ### 6. Capture Spark execution-plan evidence
 
@@ -181,15 +185,6 @@ python -m pytest -q
 ```
 
 The tests cover schema validation, transformations, the fixed ERA5 request, weather parsing, Task 2 outputs, clustering, modelling, and the partitioned-Parquet pipeline.
-
-## Spark configuration
-
-The application uses `local[4]`, 2 GB of driver memory, and the `America/Chicago` time zone by default. Override the local Spark settings when needed:
-
-```powershell
-$env:DAS7002_SPARK_MASTER = "local[2]"
-$env:DAS7002_SPARK_DRIVER_MEMORY = "4g"
-```
 
 ## Notes
 
