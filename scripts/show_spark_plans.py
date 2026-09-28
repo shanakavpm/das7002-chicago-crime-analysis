@@ -7,7 +7,7 @@ from chicago_crime.pipeline import create_spark_session
 
 def run() -> None:
     """Explain the two Spark optimisations cited in the assignment report."""
-    spark = create_spark_session("DAS7002-Execution-Plans")
+    spark = create_spark_session("Chicago-Crime-Execution-Plans")
     try:
         crime = spark.read.parquet("data/processed/chicago_crime_parquet")
         census = spark.read.parquet("data/processed/chicago_census_parquet")

@@ -1,4 +1,4 @@
-"""Command entry point for DAS7002 Tasks 2, 3, and 4."""
+"""Command entry point for analysis Tasks 2, 3, and 4."""
 
 import argparse
 import logging
@@ -31,7 +31,7 @@ LOGGER = logging.getLogger(__name__)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse the selected assignment task and its required input/output paths."""
-    parser = argparse.ArgumentParser(description="Run DAS7002 Task 2, 3, or 4 analysis.")
+    parser = argparse.ArgumentParser(description="Run Task 2, 3, or 4 analysis.")
     parser.add_argument("task", choices=("eda", "cluster", "model"), help="Assignment task to run.")
     parser.add_argument("--crime-input", required=True, type=Path, help="Path to cleaned crime Parquet data.")
     parser.add_argument("--output-dir", required=True, type=Path, help="Directory for task outputs.")
@@ -177,7 +177,7 @@ def run() -> None:
     """Execute one supported analysis task against the cleaned crime dataset."""
     configure_logging()
     args = parse_arguments()
-    spark = create_spark_session(f"DAS7002-{args.task.title()}")
+    spark = create_spark_session(f"Chicago-Crime-{args.task.title()}")
     try:
         crime_frame = spark.read.parquet(str(args.crime_input))
         if args.task == "eda":

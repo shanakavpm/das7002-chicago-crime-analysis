@@ -1,4 +1,4 @@
-"""Export small, report-ready DAS7002 tables as ordinary CSV files."""
+"""Export small, report-ready tables as ordinary CSV files."""
 
 import argparse
 import csv
@@ -30,7 +30,7 @@ def export_small_frame(frame: DataFrame, output_path: Path) -> None:
 
 def parse_arguments() -> argparse.Namespace:
     """Parse source directories and the task evidence sets to export."""
-    parser = argparse.ArgumentParser(description="Export report-ready DAS7002 evidence tables.")
+    parser = argparse.ArgumentParser(description="Export report-ready evidence tables.")
     parser.add_argument("--processed-dir", type=Path, default=Path("data/processed"))
     parser.add_argument("--task-output-dir", type=Path, default=Path("outputs/task4"))
     parser.add_argument("--task2-output-dir", type=Path, default=Path("outputs/task2"))
@@ -50,7 +50,7 @@ def run() -> None:
     """Create visible CSV copies of the small tables needed in the report."""
     configure_logging()
     args = parse_arguments()
-    spark = create_spark_session("DAS7002-Export-Evidence")
+    spark = create_spark_session("Chicago-Crime-Export-Evidence")
     try:
         if "task1" in args.tasks:
             task1_tables = {

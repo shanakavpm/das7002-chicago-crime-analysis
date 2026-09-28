@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 def parse_arguments() -> argparse.Namespace:
     """Parse Task 1 census, weather, quality, and output paths."""
     parser = argparse.ArgumentParser(
-        description="Clean census and weather datasets for DAS7002 Task 1."
+        description="Clean census and weather datasets for Task 1."
     )
     parser.add_argument(
         "--census-input",
@@ -56,7 +56,7 @@ def run() -> None:
     """Clean the census lookup and ERA5 weather data used by Task 2."""
     configure_logging()
     args = parse_arguments()
-    spark = create_spark_session("DAS7002-Chicago-Census-ETL")
+    spark = create_spark_session("Chicago-Census-ETL")
     try:
         raw_census = spark.read.option("header", True).option("mode", "PERMISSIVE").csv(
             str(args.census_input)

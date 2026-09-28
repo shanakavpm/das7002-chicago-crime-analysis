@@ -129,8 +129,8 @@ python -m chicago_crime.run_tasks cluster `
 ### 5. Run arrest-prediction modelling
 
 ```powershell
-$env:DAS7002_SPARK_MASTER = "local[2]"
-$env:DAS7002_SPARK_DRIVER_MEMORY = "4g"
+$env:CHICAGO_CRIME_SPARK_MASTER = "local[2]"
+$env:CHICAGO_CRIME_SPARK_DRIVER_MEMORY = "4g"
 python -m chicago_crime.run_tasks model `
   --crime-input data/processed/chicago_crime_parquet `
   --output-dir outputs

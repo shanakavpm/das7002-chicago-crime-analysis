@@ -1,4 +1,4 @@
-"""Download the fixed ERA5 weather extract used by DAS7002 Task 2."""
+"""Download the fixed ERA5 weather extract used by Task 2."""
 
 from __future__ import annotations
 

@@ -22,8 +22,8 @@ def create_spark_session(app_name: str) -> SparkSession:
     # system Python, which PySpark rejects when their minor versions differ.
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
-    spark_master = os.environ.get("DAS7002_SPARK_MASTER", "local[4]")
-    driver_memory = os.environ.get("DAS7002_SPARK_DRIVER_MEMORY", "2g")
+    spark_master = os.environ.get("CHICAGO_CRIME_SPARK_MASTER", "local[4]")
+    driver_memory = os.environ.get("CHICAGO_CRIME_SPARK_DRIVER_MEMORY", "2g")
     return (
         SparkSession.builder.master(spark_master)
         .appName(app_name)

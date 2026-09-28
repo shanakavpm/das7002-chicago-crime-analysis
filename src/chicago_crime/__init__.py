@@ -1,2 +1,2 @@
-"""Reusable Spark pipeline components for the DAS7002 Chicago Crime project."""
+"""Reusable Spark pipeline components for the Chicago Crime project."""
 

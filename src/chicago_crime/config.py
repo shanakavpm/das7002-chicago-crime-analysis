@@ -13,5 +13,5 @@ class PipelineConfig:
     quality_output_path: Path | None = None
     quarantine_output_path: Path | None = None
     dictionary_output_path: Path | None = None
-    app_name: str = "DAS7002-Chicago-Crime-ETL"
+    app_name: str = "Chicago-Crime-ETL"
     overwrite_output: bool = True
